@@ -21,6 +21,46 @@ class myClient {
 
     }
 
+    public void sendMessage(String messageOut) {
+        try {
+            out.writeUTF(messageOut + "\n");
+            out.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public String recieveMessage() {
+        String messageIn = "";
+        try {
+            messageIn = in.readLine();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        System.out.println(messageIn);
+        return messageIn;
+    }
+
+    public String sendRecieve(String messageOut) {
+        sendMessage(messageOut);
+        return recieveMessage();
+    }
+
+    public void quit() {
+        sendRecieve("QUIT");
+        try {
+            in.close();
+            out.close();
+            socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void assignmentAlgorithm() {
+        
+    }
+
     public static void main(String[] args) {
 
     }
