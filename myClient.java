@@ -9,6 +9,7 @@ class myClient {
     private Socket socket;
     private BufferedReader in;
     private DataOutputStream out;
+    private static final boolean debug = false;
 
     public myClient() {
         try {
@@ -22,8 +23,9 @@ class myClient {
     }
 
     public void sendMessage(String messageOut) {
+        if(debug)System.out.println("SEND: " + messageOut);
         try {
-            out.writeUTF(messageOut + "\n");
+            out.write((messageOut + "\n").getBytes());
             out.flush();
         } catch (IOException e) {
             e.printStackTrace();
@@ -37,7 +39,7 @@ class myClient {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        System.out.println(messageIn);
+        if(debug)System.out.println("RCVD: " + messageIn);
         return messageIn;
     }
 
@@ -50,7 +52,7 @@ class myClient {
 
     public void authenticate() {
         sendRecieve("HELO");
-        sendRecieve("AUTH" + System.getProperty("user.name"));
+        sendRecieve("AUTH " + System.getProperty("user.name"));
         firstJob = sendRecieve("REDY").split(" ");
     }
 
@@ -71,17 +73,50 @@ class myClient {
 
     public String[] getServer(String[] job) {
         int coresNeeded = Integer.parseInt(job[4]);
-        String[] serversData = sendRecieve("GETS Capable " + job[4] + " " + job[5] + " " + job[6]).split(" ");
-
         int lowestCoreCount = 9999;
         String[] server = null;
 
-        for (int i = 0; i < Integer.parseInt(serversData[1]); i++) {
-            String[] currentServer = recieveMessage().split(" ");
-            int coresLeft = Integer.parseInt(currentServer[4]) - coresNeeded;
-            if (coresLeft >= 0 && coresLeft <= lowestCoreCount) {
-                lowestCoreCount = coresLeft;
-                server = currentServer;
+        String[] serversData = sendRecieve("GETS Avail " + job[4] + " " + job[5] + " " + job[6]).split(" ");
+
+        sendMessage("OK");
+
+        if (Integer.parseInt(serversData[1]) > 0) {
+            // for (int i = 0; i < Integer.parseInt(serversData[1]); i++) {
+            //     String[] currentServer = recieveMessage().split(" ");
+            //     int coresLeft = Integer.parseInt(currentServer[4]) - coresNeeded;
+            //     if (coresLeft >= 0 && coresLeft <= lowestCoreCount) {
+            //         lowestCoreCount = coresLeft;
+            //         server = currentServer;
+            //     }
+            // }
+            server = recieveMessage().split(" ");
+            for (int i = 1; i < Integer.parseInt(serversData[1]); i++) {
+                recieveMessage();
+            }
+            sendRecieve("OK");
+
+            if (Integer.parseInt(server[4]) == coresNeeded) {
+                return server;
+            }
+        } else {
+            recieveMessage();
+        }
+
+        serversData = sendRecieve("GETS Capable " + job[4] + " " + job[5] + " " + job[6]).split(" ");
+
+        sendMessage("OK");
+
+        String[][] servers = new String[Integer.parseInt(serversData[1])][];
+
+        for (int i = 0; i < servers.length; i++) {
+            servers[i] = recieveMessage().split(" ");
+        }
+
+        sendRecieve("OK");
+
+        for (int i = 1; i <= servers.length; i++) {
+            if (Integer.parseInt(servers[servers.length - i][4]) >= coresNeeded) {
+                return servers[servers.length - i];
             }
         }
 
@@ -90,34 +125,42 @@ class myClient {
 
     public String[] getJob() {
         String[] job = sendRecieve("REDY").split(" ");
-        if (job[0].equals("NONE")) {
-            if (isQueued > 0) {
 
-            } else {
-                finished = true;
-                return job;    
-            }
+        if (job[0].equals("NONE")) {
+            finished = true;
+            return job;    
         }
 
-        while (!job[0].equals("JOBN")) {
+        if (job[0].equals("CHKQ")) {
+            dequeueJobs();
+        }
+
+        while (!(job[0].equals("JOBN") || job[0].equals("JOBP"))) {
             job = sendRecieve("REDY").split(" ");
+            
             if (job[0].equals("NONE")) {
                 finished = true;
                 return job;
             }
+
+            if (job[0].equals("CHKQ")) {
+                dequeueJobs();
+            }
         }
+
         return job;
     }
 
     public void enqueueJob(String[] job) {
         isQueued++;
-
+        sendRecieve("ENQJ GQ");
     }
 
     public void dequeueJobs() {
         for (int i = 0; i < isQueued; i++) {
-            
+            sendRecieve("DEQJ GQ 0");
         }
+        isQueued = 0;
     }
 
     private boolean finished = false;
