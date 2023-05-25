@@ -70,15 +70,33 @@ class myClient {
     }
 
     public String[] getServer(String[] job) {
-        
-        return new String[0];
+        int coresNeeded = Integer.parseInt(job[4]);
+        String[] serversData = sendRecieve("GETS Capable " + job[4] + " " + job[5] + " " + job[6]).split(" ");
+
+        int lowestCoreCount = 9999;
+        String[] server = null;
+
+        for (int i = 0; i < Integer.parseInt(serversData[1]); i++) {
+            String[] currentServer = recieveMessage().split(" ");
+            int coresLeft = Integer.parseInt(currentServer[4]) - coresNeeded;
+            if (coresLeft >= 0 && coresLeft <= lowestCoreCount) {
+                lowestCoreCount = coresLeft;
+                server = currentServer;
+            }
+        }
+
+        return server;
     }
 
     public String[] getJob() {
         String[] job = sendRecieve("REDY").split(" ");
         if (job[0].equals("NONE")) {
-            finished = true;
-            return job;
+            if (isQueued > 0) {
+
+            } else {
+                finished = true;
+                return job;    
+            }
         }
 
         while (!job[0].equals("JOBN")) {
@@ -91,7 +109,19 @@ class myClient {
         return job;
     }
 
+    public void enqueueJob(String[] job) {
+        isQueued++;
+
+    }
+
+    public void dequeueJobs() {
+        for (int i = 0; i < isQueued; i++) {
+            
+        }
+    }
+
     private boolean finished = false;
+    private int isQueued = 0;
 
     public void runAlgorithm() {
         String[] job = firstJob;
@@ -100,7 +130,11 @@ class myClient {
 
         while (!finished) {
             server = getServer(job);
-            scheduleJob(job, server);
+            if (server == null) {
+                enqueueJob(job);
+            } else {
+                scheduleJob(job, server);
+            }
             job = getJob();
         }
     }
