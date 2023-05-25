@@ -46,6 +46,14 @@ class myClient {
         return recieveMessage();
     }
 
+    public String[] firstJob;
+
+    public void authenticate() {
+        sendRecieve("HELO");
+        sendRecieve("AUTH" + System.getProperty("user.name"));
+        firstJob = sendRecieve("REDY").split(" ");
+    }
+
     public void quit() {
         sendRecieve("QUIT");
         try {
@@ -57,11 +65,52 @@ class myClient {
         }
     }
 
-    public void assignmentAlgorithm() {
+    public void scheduleJob(String[] job, String[] server) {
+        sendRecieve("SCHD " + job[2] + " " + server[0] + " " + server[1]);
+    }
+
+    public String[] getServer(String[] job) {
         
+        return new String[0];
+    }
+
+    public String[] getJob() {
+        String[] job = sendRecieve("REDY").split(" ");
+        if (job[0].equals("NONE")) {
+            finished = true;
+            return job;
+        }
+
+        while (!job[0].equals("JOBN")) {
+            job = sendRecieve("REDY").split(" ");
+            if (job[0].equals("NONE")) {
+                finished = true;
+                return job;
+            }
+        }
+        return job;
+    }
+
+    private boolean finished = false;
+
+    public void runAlgorithm() {
+        String[] job = firstJob;
+        String[] server;
+
+
+        while (!finished) {
+            server = getServer(job);
+            scheduleJob(job, server);
+            job = getJob();
+        }
     }
 
     public static void main(String[] args) {
+        myClient client = new myClient();
+        client.authenticate();
 
+        client.runAlgorithm();
+
+        client.quit();
     }
 }
