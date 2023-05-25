@@ -33,14 +33,14 @@ class myClient {
     }
 
     public String[] recieveMessage() {
-        String[] messageIn = null;
+        String messageIn = null;
         try {
-            messageIn = in.readLine().split(" ");
+            messageIn = in.readLine();
         } catch (IOException e) {
             e.printStackTrace();
         }
         if(debug)System.out.println("RCVD: " + messageIn);
-        return messageIn;
+        return messageIn.split(" ");
     }
 
     public String[] sendRecieve(String messageOut) {
@@ -71,126 +71,56 @@ class myClient {
         sendRecieve("SCHD " + job[2] + " " + server[0] + " " + server[1]);
     }
 
-    public String[] getServer2(String[] job) {
+    public String[] getServer(String[] job) {
         String[] server = null;
 
-        String[] serversData = sendRecieve("GETS Avail " + job[4] + " " + job[5] + " " + job[6]);
-        int numServers = Integer.parseInt(serversData[1]);
+        int coresNeeded = Integer.parseInt(job[4]);
+        int coresAvailable;
+        int coresRemaining;
+        int bestCores = 99999;
+
+        String[] serverData = sendRecieve("GETS Capable " + job[4] + " " + job[5] + " " + job[6]);
+        int numServers = Integer.parseInt(serverData[1]);
 
         sendMessage("OK");
-        
-        if (numServers > 0) {
-            server = recieveMessage();
-            for (int i = 1; i < numServers; i++) {
-                recieveMessage();
-            }
-            sendRecieve("OK");
-        } else {
-            recieveMessage();
 
-            serversData = sendRecieve("GETS Capable " + job[4] + " " + job[5] + " " + job[6]);
-            numServers = Integer.parseInt(serversData[1]);
+        String[] currentServer;
 
-            sendMessage("OK");
+        String[][] servers = new String[numServers][];
 
-            if (numServers > 0) {
-                int coresNeeded = Integer.parseInt(job[4]);
-                int coresAvailable;
-                int coresLeft;
-                int lowestCores = 99999;
-                String[] currentServer;
+        for (int i = 0; i < numServers; i++) {
+            servers[i] = recieveMessage();
+        }
 
-                for (int i = 0; i < numServers; i++) {
-                    currentServer = recieveMessage();
+        sendRecieve("OK");
 
-                    coresAvailable = Integer.parseInt(currentServer[4]);
-                    if (coresAvailable >= coresNeeded) {
-                        coresLeft = coresAvailable - coresNeeded;
-                        if (coresLeft < lowestCores) {
-                            server = currentServer;
-                            lowestCores = coresLeft;
-                        }
-                    }
-                }
+        for (int i = 0; i < numServers; i++) {
+            currentServer = servers[i];
+            coresAvailable = Integer.parseInt(currentServer[4]);
+            coresRemaining = coresAvailable - coresNeeded;
 
-                sendRecieve("OK");
+            if (coresRemaining >= 0 && bestCores > coresRemaining) {
+                server = currentServer;
+                bestCores = coresRemaining;
             }
         }
 
+
         if (server == null) {
-            serversData = sendRecieve("GETS Capable " + job[4] + " " + job[5] + " " + job[6]);
-            numServers = Integer.parseInt(serversData[1]);
-
-            String[][] servers = new String[numServers][];
-
-            sendMessage("OK");
+            System.out.println("ID " + job[2]);
+            System.out.println("Cores " + job[4]);
+            System.out.println("submitTime " + job[1]);
 
             for (int i = 0; i < numServers; i++) {
-                servers[i] = recieveMessage();
-            }
+                String waitCount = sendRecieve("CNTJ " + servers[i][0] + " " + servers[i][1] + " 1")[0];
 
-            sendRecieve("OK");
-
-            for (int i = 0; i < numServers; i++) {
-                String serverStatus = sendRecieve("CNTJ " + servers[i][0] + " " + servers[i][1] + " 2")[0];
-                System.out.println(serverStatus);
-                if (Integer.parseInt(serverStatus) == 0) {
+                if (Integer.parseInt(waitCount) == 0) {
+                    server = servers[i];
+                    System.out.println(server[0] + " " + server[1]);
                     return server;
                 }
             }
         }
-
-        return server;
-    }
-
-    public String[] getServer(String[] job) {
-        int coresNeeded = Integer.parseInt(job[4]);
-        // int lowestCoreCount = 9999;
-        String[] server = null;
-
-        String[] serversData = sendRecieve("GETS Avail " + job[4] + " " + job[5] + " " + job[6]);
-
-        sendMessage("OK");
-
-        if (Integer.parseInt(serversData[1]) > 0) {
-            // for (int i = 0; i < Integer.parseInt(serversData[1]); i++) {
-            //     String[] currentServer = recieveMessage().split(" ");
-            //     int coresLeft = Integer.parseInt(currentServer[4]) - coresNeeded;
-            //     if (coresLeft >= 0 && coresLeft <= lowestCoreCount) {
-            //         lowestCoreCount = coresLeft;
-            //         server = currentServer;
-            //     }
-            // }
-            server = recieveMessage();
-            for (int i = 1; i < Integer.parseInt(serversData[1]); i++) {
-                recieveMessage();
-            }
-            sendRecieve("OK");
-
-            if (Integer.parseInt(server[4]) == coresNeeded) {
-                return server;
-            }
-        } else {
-            recieveMessage();
-        }
-
-        // serversData = sendRecieve("GETS Capable " + job[4] + " " + job[5] + " " + job[6]).split(" ");
-
-        // sendMessage("OK");
-
-        // String[][] servers = new String[Integer.parseInt(serversData[1])][];
-
-        // for (int i = 0; i < servers.length; i++) {
-        //     servers[i] = recieveMessage().split(" ");
-        // }
-
-        // sendRecieve("OK");
-
-        // for (int i = 1; i <= servers.length; i++) {
-        //     if (Integer.parseInt(servers[servers.length - i][4]) >= coresNeeded) {
-        //         return servers[servers.length - i];
-        //     }
-        // }
 
         return server;
     }
@@ -244,7 +174,7 @@ class myClient {
 
 
         while (!finished) {
-            server = getServer2(job);
+            server = getServer(job);
             if (server == null) {
                 System.out.println("q");
                 enqueueJob(job);
