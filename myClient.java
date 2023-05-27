@@ -71,53 +71,62 @@ class myClient {
         sendRecieve("SCHD " + job[2] + " " + server[0] + " " + server[1]);
     }
 
-    public String[] getServer(String[] job) {
+    public String[] getServerAfterAvail(String[] job) {
         String[] server = null;
 
-        int coresNeeded = Integer.parseInt(job[4]);
-        int coresAvailable;
-        int coresRemaining;
-        int bestCores = 99999;
-
-        String[] serverData = sendRecieve("GETS Capable " + job[4] + " " + job[5] + " " + job[6]);
+        String[] serverData = sendRecieve("GETS Avail " + job[4] + " " + job[5] + " " + job[6]);
         int numServers = Integer.parseInt(serverData[1]);
 
         sendMessage("OK");
 
-        String[] currentServer;
+        if (numServers > 0) {
+            server = recieveMessage();
 
-        String[][] servers = new String[numServers][];
-
-        for (int i = 0; i < numServers; i++) {
-            servers[i] = recieveMessage();
-        }
-
-        sendRecieve("OK");
-
-        for (int i = 0; i < numServers; i++) {
-            currentServer = servers[i];
-            coresAvailable = Integer.parseInt(currentServer[4]);
-            coresRemaining = coresAvailable - coresNeeded;
-
-            if (coresRemaining >= 0 && bestCores > coresRemaining) {
-                server = currentServer;
-                bestCores = coresRemaining;
+            for (int i = 1; i < numServers; i++) {
+                recieveMessage();
             }
-        }
 
+            sendRecieve("OK");
+        } else {
+            recieveMessage();
 
-        if (server == null) {
-            System.out.println("ID " + job[2]);
-            System.out.println("Cores " + job[4]);
-            System.out.println("submitTime " + job[1]);
+            int coresNeeded = Integer.parseInt(job[4]);
+            int coresAvailable;
+            int coresRemaining;
+            int bestCores = 99999;
+
+            serverData = sendRecieve("GETS Capable " + job[4] + " " + job[5] + " " + job[6]);
+            numServers = Integer.parseInt(serverData[1]);
+
+            sendMessage("OK");
+
+            String[][] servers = new String[numServers][];
 
             for (int i = 0; i < numServers; i++) {
-                String waitCount = sendRecieve("CNTJ " + servers[i][0] + " " + servers[i][1] + " 1")[0];
+                servers[i] = recieveMessage();
+            }
 
-                if (Integer.parseInt(waitCount) == 0) {
+            sendRecieve("OK");
+
+            for (int i = 0; i < numServers; i++) {
+                coresAvailable = Integer.parseInt(servers[i][4]);
+                coresRemaining = coresAvailable - coresNeeded;
+
+                if (coresRemaining >= 0 && bestCores > coresRemaining) {
                     server = servers[i];
-                    System.out.println(server[0] + " " + server[1]);
-                    return server;
+                    bestCores = coresRemaining;
+                }
+            }
+
+
+            if (server == null) {
+                for (int i = 0; i < numServers; i++) {
+                    String waitCount = sendRecieve("CNTJ " + servers[i][0] + " " + servers[i][1] + " 1")[0];
+
+                    if (Integer.parseInt(waitCount) == 0) {
+                        server = servers[i];
+                        return server;
+                    }
                 }
             }
         }
@@ -174,9 +183,8 @@ class myClient {
 
 
         while (!finished) {
-            server = getServer(job);
+            server = getServerAfterAvail(job);
             if (server == null) {
-                System.out.println("q");
                 enqueueJob(job);
             } else {
                 scheduleJob(job, server);
